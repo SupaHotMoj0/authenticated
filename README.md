@@ -113,7 +113,7 @@ All options can be modified after setup.
 
 ---
 
-## Configuration (YAML – Optional)
+## Example configuration (Not Required / Optional)
 
 ```yaml
 sensor:
@@ -151,16 +151,6 @@ Useful for auditing and historical analysis.
 
 ---
 
-## Privacy & Security
-
-- No credentials are stored
-- Only successful authentications are processed
-- Uses Home Assistant's internal authentication data
-- Local-only operation
-- External IP lookups are configurable
-
----
-
 ## File Structure
 
 ```
@@ -192,7 +182,14 @@ When contributing:
 
 Please report issues here: https://github.com/SupaHotMoj0/authenticated/issues
 
-Include logs and Home Assistant version when possible.
+```yaml
+logger:
+  default: info
+  logs:
+    custom_components.authenticated: debug
+```
+
+Include debug logs and Home Assistant version when possible.
 
 ---
 
