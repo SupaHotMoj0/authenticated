@@ -1,6 +1,7 @@
 """Providers."""
 
 import logging
+import aiohttp
 import requests
 from . import AuthenticatedBaseException
 
@@ -25,26 +26,49 @@ class GeoProvider:
         self.result = {}
 
     def update_geo_info(self):
-        """Fetch and parse geo information."""
+        """Fetch and parse geo information synchronously (legacy/executor)."""
         self.result = {}
         try:
             api = self.url.format(self.ipaddr)
             data = requests.get(api, timeout=5).json()
-            _LOGGER.debug(f"Geo data for {self.ipaddr}: {data}")
-
-            if data.get("error"):
-                if data.get("reason") == "RateLimited":
-                    raise AuthenticatedBaseException(
-                        "RatelimitError, try a different provider."
-                    )
-            elif data.get("status", "success") in ["error", "fail"] or data.get("reserved"):
-                return
-
-            self.result = data
+            _LOGGER.debug("Geo data for %s: %s", self.ipaddr, data)
+            self._process_response(data)
         except AuthenticatedBaseException as exception:
             _LOGGER.error(exception)
         except requests.exceptions.RequestException as e:
-            _LOGGER.error(f"Request failed for {self.ipaddr}: {e}")
+            _LOGGER.error("Request failed for %s: %s", self.ipaddr, e)
+
+    async def async_update_geo_info(self, session=None):
+        """Fetch and parse geo information asynchronously."""
+        self.result = {}
+        close_session = False
+        if session is None:
+            session = aiohttp.ClientSession()
+            close_session = True
+        try:
+            api = self.url.format(self.ipaddr)
+            async with session.get(api, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                data = await resp.json(content_type=None)
+            _LOGGER.debug("Geo data for %s: %s", self.ipaddr, data)
+            self._process_response(data)
+        except AuthenticatedBaseException as exception:
+            _LOGGER.error(exception)
+        except (aiohttp.ClientError, TimeoutError) as e:
+            _LOGGER.error("Async request failed for %s: %s", self.ipaddr, e)
+        finally:
+            if close_session:
+                await session.close()
+
+    def _process_response(self, data):
+        """Process API response data."""
+        if data.get("error"):
+            if data.get("reason") == "RateLimited":
+                raise AuthenticatedBaseException(
+                    "RatelimitError, try a different provider."
+                )
+        elif data.get("status", "success") in ["error", "fail"] or data.get("reserved"):
+            return
+        self.result = data
 
     @property
     def computed_result(self):
@@ -139,4 +163,7 @@ class IPInfo(GeoProvider):
     @property
     def org(self):
         org = self.result.get("org")
-        return org.split(" ", 1)[1] if org else None
+        if not org:
+            return None
+        parts = org.split(" ", 1)
+        return parts[1] if len(parts) > 1 else None

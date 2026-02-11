@@ -4,23 +4,27 @@ import logging
 import os
 import socket
 from ipaddress import ip_address, ip_network
-from datetime import datetime, timedelta
+from datetime import timedelta
 from contextlib import suppress
 
 import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.components.persistent_notification import async_create
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_EXCLUDE,
     CONF_EXCLUDE_CLIENTS,
     CONF_LOG_LOCATION,
     CONF_NOTIFY,
-    CONF_NOTIFY_ECLUDE_ASN,
-    CONF_NOTIFY_ECLUDE_HOSTNAMES,
+    CONF_NOTIFY_EXCLUDE_ASN,
+    CONF_NOTIFY_EXCLUDE_HOSTNAMES,
     CONF_PROVIDER,
+    DOMAIN,
     OUTFILE,
     STARTUP,
 )
@@ -34,10 +38,10 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_PROVIDER, default="ipapi"): vol.In(list(PROVIDERS.keys())),
         vol.Optional(CONF_LOG_LOCATION, default=""): cv.string,
         vol.Optional(CONF_NOTIFY, default=True): cv.boolean,
-        vol.Optional(CONF_NOTIFY_ECLUDE_ASN, default=[]): vol.All(
+        vol.Optional(CONF_NOTIFY_EXCLUDE_ASN, default=[]): vol.All(
             cv.ensure_list, [cv.string]
         ),
-        vol.Optional(CONF_NOTIFY_ECLUDE_HOSTNAMES, default=[]): vol.All(
+        vol.Optional(CONF_NOTIFY_EXCLUDE_HOSTNAMES, default=[]): vol.All(
             cv.ensure_list, [cv.string]
         ),
         vol.Optional(CONF_EXCLUDE, default=[]): vol.All(cv.ensure_list, [cv.string]),
@@ -51,6 +55,7 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 # Helper functions
 # ------------------------
 def humanize_time(timestring):
+    from datetime import datetime
     return datetime.strptime(timestring[:19], "%Y-%m-%dT%H:%M:%S")
 
 
@@ -98,19 +103,63 @@ async def async_write_outfile(hass, file, data):
 
 
 # ------------------------
-# Setup platform
+# Config entry setup
+# ------------------------
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the Authenticated sensor from a config entry."""
+    _LOGGER.info(STARTUP)
+
+    data = entry.data
+    notify = data.get(CONF_NOTIFY, True)
+    notify_exclude_asn = data.get(CONF_NOTIFY_EXCLUDE_ASN, [])
+    notify_exclude_hostnames = data.get(CONF_NOTIFY_EXCLUDE_HOSTNAMES, [])
+    exclude = data.get(CONF_EXCLUDE, [])
+    exclude_clients = data.get(CONF_EXCLUDE_CLIENTS, [])
+    provider = data.get(CONF_PROVIDER, "ipapi")
+
+    hass.data.setdefault("authenticated_ips", {})
+    out_file = hass.config.path(OUTFILE)
+
+    sensor = AuthenticatedSensor(
+        hass,
+        notify,
+        out_file,
+        exclude,
+        exclude_clients,
+        notify_exclude_asn,
+        notify_exclude_hostnames,
+        provider,
+        entry.entry_id,
+    )
+
+    await sensor.async_initial_run()
+    async_add_entities([sensor], True)
+
+    hass.bus.async_listen(
+        "homeassistant_auth",
+        lambda event: hass.async_create_task(sensor.async_handle_auth_event(event)),
+    )
+
+
+# ------------------------
+# Legacy YAML platform setup
 # ------------------------
 async def async_setup_platform(hass: HomeAssistant, config, async_add_entities, discovery_info=None):
+    """Set up the Authenticated sensor from YAML (legacy)."""
     _LOGGER.info(STARTUP)
 
     notify = config.get(CONF_NOTIFY)
-    notify_exclude_asn = config.get(CONF_NOTIFY_ECLUDE_ASN)
-    notify_exclude_hostnames = config.get(CONF_NOTIFY_ECLUDE_HOSTNAMES)
+    notify_exclude_asn = config.get(CONF_NOTIFY_EXCLUDE_ASN)
+    notify_exclude_hostnames = config.get(CONF_NOTIFY_EXCLUDE_HOSTNAMES)
     exclude = config.get(CONF_EXCLUDE)
     exclude_clients = config.get(CONF_EXCLUDE_CLIENTS)
     provider = config.get(CONF_PROVIDER)
 
-    hass.data["authenticated"] = {}
+    hass.data.setdefault("authenticated_ips", {})
     out_file = hass.config.path(OUTFILE)
 
     sensor = AuthenticatedSensor(
@@ -127,7 +176,6 @@ async def async_setup_platform(hass: HomeAssistant, config, async_add_entities, 
     await sensor.async_initial_run()
     async_add_entities([sensor], True)
 
-    # Listen to HA auth events for real-time logins
     hass.bus.async_listen(
         "homeassistant_auth",
         lambda event: hass.async_create_task(sensor.async_handle_auth_event(event)),
@@ -139,6 +187,7 @@ async def async_setup_platform(hass: HomeAssistant, config, async_add_entities, 
 # ------------------------
 class AuthenticatedSensor(SensorEntity):
     _attr_icon = "mdi:lock-alert"
+    _attr_has_entity_name = True
     _attr_name = "Last successful authentication"
 
     def __init__(
@@ -151,6 +200,7 @@ class AuthenticatedSensor(SensorEntity):
         notify_exclude_asn,
         notify_exclude_hostnames,
         provider,
+        entry_id=None,
     ):
         self.hass = hass
         self.provider = provider
@@ -162,7 +212,8 @@ class AuthenticatedSensor(SensorEntity):
         self.notify_exclude_asn = notify_exclude_asn
         self.notify_exclude_hostnames = notify_exclude_hostnames
         self.out = out
-        self._attr_state = None
+        self._attr_native_value = None
+        self._attr_unique_id = f"{DOMAIN}_last_auth_{entry_id or 'yaml'}"
         self.all_users = {}
 
     async def async_initial_run(self):
@@ -178,18 +229,18 @@ class AuthenticatedSensor(SensorEntity):
             access_data = AuthenticatedData(ip, attrs)
             ipdata = IPData(access_data, self.all_users, self.provider, new=False)
             if ip not in self.stored:
-                ipdata.lookup()
-            self.hass.data["authenticated"][ip] = ipdata
+                await self.hass.async_add_executor_job(ipdata.lookup)
+            self.hass.data["authenticated_ips"][ip] = ipdata
 
         await self.async_write_to_file()
 
-        if self.hass.data["authenticated"]:
+        if self.hass.data["authenticated_ips"]:
             last_ip = max(
-                self.hass.data["authenticated"].values(),
+                self.hass.data["authenticated_ips"].values(),
                 key=lambda x: x.last_used_at or "",
             )
             self.last_ip = last_ip
-            self._attr_state = last_ip.ip_address
+            self._attr_native_value = last_ip.ip_address
 
     async def async_handle_auth_event(self, event):
         data = event.data
@@ -198,29 +249,31 @@ class AuthenticatedSensor(SensorEntity):
         if not ip or not is_public(ip):
             return
 
-        if ip in self.hass.data["authenticated"]:
-            ipdata = self.hass.data["authenticated"][ip]
+        now_iso = dt_util.utcnow().isoformat()
+
+        if ip in self.hass.data["authenticated_ips"]:
+            ipdata = self.hass.data["authenticated_ips"][ip]
             ipdata.prev_used_at = ipdata.last_used_at
-            ipdata.last_used_at = datetime.utcnow().isoformat()
+            ipdata.last_used_at = now_iso
         else:
             access_data = AuthenticatedData(
                 ip,
                 {
                     "user_id": user_id,
-                    "last_used_at": datetime.utcnow().isoformat(),
+                    "last_used_at": now_iso,
                     "prev_used_at": None,
                 },
             )
             ipdata = IPData(access_data, self.all_users, self.provider)
-            ipdata.lookup()
-            self.hass.data["authenticated"][ip] = ipdata
+            await self.hass.async_add_executor_job(ipdata.lookup)
+            self.hass.data["authenticated_ips"][ip] = ipdata
 
-        ipdata.hostname = get_hostname(ip)
+        ipdata.hostname = await self.hass.async_add_executor_job(get_hostname, ip)
         self.last_ip = ipdata
-        self._attr_state = ipdata.ip_address
+        self._attr_native_value = ipdata.ip_address
 
         if self.notify:
-            if ipdata.asn not in self.notify_exclude_asn and ipdata.hostname not in self.notify_exclude_hostnames:
+            if ipdata.asn not in (self.notify_exclude_asn or []) and ipdata.hostname not in (self.notify_exclude_hostnames or []):
                 ipdata.notify(self.hass)
             ipdata.new_ip = False
 
@@ -256,7 +309,7 @@ class AuthenticatedSensor(SensorEntity):
 
     async def async_write_to_file(self):
         info = await async_get_outfile_content(self.hass, self.out)
-        for ip, data in self.hass.data["authenticated"].items():
+        for ip, data in self.hass.data["authenticated_ips"].items():
             info[ip] = {
                 "user_id": data.user_id,
                 "username": data.username,

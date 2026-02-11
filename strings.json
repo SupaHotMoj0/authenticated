@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Authenticated",
+        "description": "Track successful Home Assistant authentication events.",
+        "data": {
+          "provider": "IP lookup provider",
+          "enable_notification": "Enable notifications for new IPs",
+          "exclude": "Excluded IP addresses or networks (comma-separated)",
+          "exclude_clients": "Excluded client IDs (comma-separated)",
+          "notify_exclude_asns": "ASNs to exclude from notifications (comma-separated)",
+          "notify_exclude_hostnames": "Hostnames to exclude from notifications (comma-separated)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Authenticated is already configured."
+    }
+  }
+}
