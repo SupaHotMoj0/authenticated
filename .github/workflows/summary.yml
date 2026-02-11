@@ -3,6 +3,11 @@ name: Summarize new issues
 on:
   issues:
     types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to summarize (optional)'
+        required: false
 
 jobs:
   summary:
