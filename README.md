@@ -1,5 +1,7 @@
 # Authenticated – Home Assistant Integration
 
+[![Summarize new issues](https://github.com/SupaHotMoj0/authenticated/actions/workflows/summary.yml/badge.svg?event=workflow_dispatch)](https://github.com/SupaHotMoj0/authenticated/actions/workflows/summary.yml)
+
 [![HACS Badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 [![GitHub Release](https://img.shields.io/github/release/SupaHotMoj0/authenticated?style=for-the-badge)](https://github.com/SupaHotMoj0/authenticated/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=for-the-badge)](LICENSE)
