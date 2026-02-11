@@ -5,8 +5,9 @@ import os
 import sys
 from unittest.mock import patch, MagicMock
 
-# Root of the repo (one level up from tests/)
+# Root of the repo and integration source directory
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SRC_DIR = os.path.join(REPO_ROOT, "custom_components", "authenticated")
 
 
 # ---------------------------------------------------------------------------
@@ -17,7 +18,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def test_sensor_imports_correct_const_names():
     """sensor.py must import CONF_NOTIFY_EXCLUDE_ASN and
     CONF_NOTIFY_EXCLUDE_HOSTNAMES (not the misspelled ECLUDE variants)."""
-    with open(os.path.join(REPO_ROOT, "sensor.py")) as f:
+    with open(os.path.join(SRC_DIR, "sensor.py")) as f:
         source = f.read()
 
     assert "CONF_NOTIFY_ECLUDE_ASN" not in source, (
@@ -34,9 +35,9 @@ def test_sensor_imports_correct_const_names():
 def test_const_exports_match_sensor_imports():
     """The names exported by const.py must include every CONF_ name
     referenced in sensor.py imports."""
-    with open(os.path.join(REPO_ROOT, "const.py")) as f:
+    with open(os.path.join(SRC_DIR, "const.py")) as f:
         const_source = f.read()
-    with open(os.path.join(REPO_ROOT, "sensor.py")) as f:
+    with open(os.path.join(SRC_DIR, "sensor.py")) as f:
         sensor_source = f.read()
 
     import_block_start = sensor_source.index("from .const import (")
@@ -65,7 +66,7 @@ def _get_ipinfo_class():
 
     spec = importlib.util.spec_from_file_location(
         "authenticated_pkg.providers",
-        os.path.join(REPO_ROOT, "providers.py"),
+        os.path.join(SRC_DIR, "providers.py"),
         submodule_search_locations=[],
     )
     mod = importlib.util.module_from_spec(spec)
@@ -113,7 +114,7 @@ def test_ipinfo_org_empty():
 def test_async_handle_auth_event_uses_executor_for_blocking_calls():
     """sensor.py must wrap lookup() and get_hostname() in
     async_add_executor_job inside async_handle_auth_event."""
-    with open(os.path.join(REPO_ROOT, "sensor.py")) as f:
+    with open(os.path.join(SRC_DIR, "sensor.py")) as f:
         source = f.read()
 
     method_start = source.index("async def async_handle_auth_event")
