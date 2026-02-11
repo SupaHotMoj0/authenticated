@@ -18,8 +18,8 @@ from .const import (
     CONF_EXCLUDE_CLIENTS,
     CONF_LOG_LOCATION,
     CONF_NOTIFY,
-    CONF_NOTIFY_ECLUDE_ASN,
-    CONF_NOTIFY_ECLUDE_HOSTNAMES,
+    CONF_NOTIFY_EXCLUDE_ASN,
+    CONF_NOTIFY_EXCLUDE_HOSTNAMES,
     CONF_PROVIDER,
     OUTFILE,
     STARTUP,
@@ -34,10 +34,10 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Optional(CONF_PROVIDER, default="ipapi"): vol.In(list(PROVIDERS.keys())),
         vol.Optional(CONF_LOG_LOCATION, default=""): cv.string,
         vol.Optional(CONF_NOTIFY, default=True): cv.boolean,
-        vol.Optional(CONF_NOTIFY_ECLUDE_ASN, default=[]): vol.All(
+        vol.Optional(CONF_NOTIFY_EXCLUDE_ASN, default=[]): vol.All(
             cv.ensure_list, [cv.string]
         ),
-        vol.Optional(CONF_NOTIFY_ECLUDE_HOSTNAMES, default=[]): vol.All(
+        vol.Optional(CONF_NOTIFY_EXCLUDE_HOSTNAMES, default=[]): vol.All(
             cv.ensure_list, [cv.string]
         ),
         vol.Optional(CONF_EXCLUDE, default=[]): vol.All(cv.ensure_list, [cv.string]),
@@ -104,8 +104,8 @@ async def async_setup_platform(hass: HomeAssistant, config, async_add_entities, 
     _LOGGER.info(STARTUP)
 
     notify = config.get(CONF_NOTIFY)
-    notify_exclude_asn = config.get(CONF_NOTIFY_ECLUDE_ASN)
-    notify_exclude_hostnames = config.get(CONF_NOTIFY_ECLUDE_HOSTNAMES)
+    notify_exclude_asn = config.get(CONF_NOTIFY_EXCLUDE_ASN)
+    notify_exclude_hostnames = config.get(CONF_NOTIFY_EXCLUDE_HOSTNAMES)
     exclude = config.get(CONF_EXCLUDE)
     exclude_clients = config.get(CONF_EXCLUDE_CLIENTS)
     provider = config.get(CONF_PROVIDER)
@@ -212,10 +212,10 @@ class AuthenticatedSensor(SensorEntity):
                 },
             )
             ipdata = IPData(access_data, self.all_users, self.provider)
-            ipdata.lookup()
+            await self.hass.async_add_executor_job(ipdata.lookup)
             self.hass.data["authenticated"][ip] = ipdata
 
-        ipdata.hostname = get_hostname(ip)
+        ipdata.hostname = await self.hass.async_add_executor_job(get_hostname, ip)
         self.last_ip = ipdata
         self._attr_state = ipdata.ip_address
 

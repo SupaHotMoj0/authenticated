@@ -139,4 +139,7 @@ class IPInfo(GeoProvider):
     @property
     def org(self):
         org = self.result.get("org")
-        return org.split(" ", 1)[1] if org else None
+        if not org:
+            return None
+        parts = org.split(" ", 1)
+        return parts[1] if len(parts) > 1 else None
