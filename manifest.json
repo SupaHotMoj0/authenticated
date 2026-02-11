@@ -1,0 +1,13 @@
+{
+  "domain": "authenticated",
+  "name": "Authenticated",
+  "version": "v0.0.5",
+  "documentation": "https://github.com/SupaHotMoj0/authenticated",
+  "codeowners": [
+    "@ludeeus",
+    "@rarosalion",
+    "@SupaHotMoj0"
+  ],
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/SupaHotMoj0/authenticated/issues"
+}
