@@ -1,10 +1,4 @@
 {
   "name": "Authenticated",
-  "domains": ["authenticated"],
-  "codeowners": ["@SupaHotMoj0"],
-  "config_flow": true,
-  "documentation": "https://github.com/SupaHotMoj0/authenticated",
-  "iot_class": "cloud_polling",
-  "requirements": [],
-  "version": "1.0.0"
+  "render_readme": true
 }
