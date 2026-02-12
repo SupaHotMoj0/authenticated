@@ -2,15 +2,10 @@
   "domain": "authenticated",
   "name": "Authenticated",
   "version": "1.0.0",
-  "documentation": "https://github.com/SupaHotMoj0/authenticated",
-  "codeowners": [
-    "@ludeeus",
-    "@rarosalion",
-    "@SupaHotMoj0"
-  ],
-  "config_flow": true,
-  "integration_type": "service",
   "iot_class": "local_polling",
+  "documentation": "https://github.com/SupaHotMoj0/authenticated",
   "issue_tracker": "https://github.com/SupaHotMoj0/authenticated/issues",
-  "requirements": []
+  "codeowners": [
+    "@SupaHotMoj0"
+  ]
 }
