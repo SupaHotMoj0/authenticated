@@ -816,6 +816,54 @@ def test_shutdown_cancels_tasks_and_closes_the_session():
     asyncio.run(_run())
 
 
+def test_form_schema_uses_probatio_not_a_stub():
+    """The form schema must validate without the voluptuous test stub."""
+    from custom_components.authenticated.form_schema import build_form_schema
+    from custom_components.authenticated.settings import storage_from_form
+
+    defaults = storage_from_form(
+        {
+            "provider": "ipapi",
+            "notify_services": "notify.mobile_app_example",
+            "exclude": "203.0.113.0/24",
+            "history_retention_days": 30,
+            "history_max_events": 200,
+        }
+    )
+    for field in (
+        "notify_services",
+        "exclude",
+        "exclude_clients",
+        "notify_exclude_asns",
+        "notify_exclude_hostnames",
+    ):
+        defaults[field] = ", ".join(defaults[field])
+    schema = build_form_schema(defaults)
+    parsed = schema(defaults)
+    assert parsed["notify_services"] == "mobile_app_example"
+    assert parsed["exclude"] == "203.0.113.0/24"
+    assert parsed["enrich_public_ips"] is True
+    assert parsed["store_usernames"] is False
+    assert parsed["history_retention_days"] == 30
+
+
+def test_runtime_is_registered_before_platform_setup():
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "custom_components",
+        "authenticated",
+        "__init__.py",
+    )
+    with open(path, encoding="utf-8") as handle:
+        source = handle.read()
+    setup = source.split("async def async_setup_entry", 1)[1].split(
+        "async def async_unload_entry", 1
+    )[0]
+    store_at = setup.index("hass.data[DOMAIN][entry.entry_id] = runtime")
+    forward_at = setup.index("await hass.config_entries.async_forward_entry_setups")
+    assert store_at < forward_at
+
+
 def test_repository_does_not_parse_forwarded_headers():
     root = os.path.join(os.path.dirname(os.path.dirname(__file__)), "custom_components", "authenticated")
     for name in os.listdir(root):
@@ -826,3 +874,4 @@ def test_repository_does_not_parse_forwarded_headers():
         assert "X-Forwarded-For" not in text
         assert "x_forwarded_for" not in text
         assert "import requests" not in text
+        assert "import voluptuous" not in text
