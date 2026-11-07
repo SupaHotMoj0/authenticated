@@ -68,13 +68,35 @@ These steps do not assume you already use HACS. Use one path. The target system 
 
 On Home Assistant OS the config directory is `/config` in the SSH and Studio Code add-ons, and `config` in the File editor and Samba share.
 
-### HACS
+`hacs.json` sets `homeassistant` to `2026.9.0`. That is the minimum version HACS and the Marketplace use when they decide whether a release can be installed. Home Assistant Core tag `2026.9.0` lists `probatio==0.11.4` in `requirements.txt`, and `homeassistant/__init__.py` on that tag calls `install_as_voluptuous()`. This repository's automated tests were not run on Core 2026.9.0, so the key is a version floor, not a compatibility test result. The integration version in `manifest.json` stays `1.1.0`.
+
+This repository is not in the default Marketplace or HACS catalog. Adding it from a link does not mean it was accepted into that catalog.
+
+### Home Assistant 2026.11 or newer
+
+The Marketplace ships with Home Assistant 2026.11 under **Settings → Marketplace**. HACS, the separate custom integration, cannot be installed on this version.
+
+1. Open **Settings → Marketplace** as an administrator and accept the community-content notice. Installing stays blocked until that notice is accepted.
+2. Select **Add from link** and enter `https://github.com/SupaHotMoj0/authenticated`.
+3. If the Marketplace asks for a type, choose **Integration**, then add it again.
+4. A custom repository needs a GitHub connection. The Marketplace uses GitHub's device sign-in: it shows a code and a link, you sign in on GitHub and approve the code. The connection reads public repository information. Catalog installs do not need this step. This repository does, because it is not in the catalog.
+5. Open the repository and select **Install**.
+6. When Home Assistant can load the integration immediately, its setup page opens and a restart is not required for that first install. If you close the page, add **Authenticated** later under **Settings → Devices & services**. Some integrations only load after a restart. The Marketplace shows a repair when that is the case.
+7. After an update, restart Home Assistant. A repair under **Settings → System → Repairs** reminds you and can restart it.
+
+Sources, read 2026-11-07: [Marketplace](https://www.home-assistant.io/integrations/marketplace/) and the [2026.11 release notes](https://www.home-assistant.io/blog/2026/11/04/release-202611/).
+
+### Home Assistant 2026.10 or older
+
+Use HACS. Its own documentation says to keep using HACS on 2026.10 and older.
 
 1. In HACS, open the three-dot menu and choose **Custom repositories**.
-2. Add `https://github.com/SupaHotMoj0/authenticated` as an **Integration**.
-3. Download **Authenticated**.
+2. Add `https://github.com/SupaHotMoj0/authenticated` and set the type to **Integration**.
+3. Select **ADD**, then download **Authenticated**.
 4. Restart Home Assistant.
 5. Go to **Settings → Devices & services → Add integration → Authenticated**.
+
+The 2026.11 release notes describe that older HACS path as download, restart, then Devices & services. HACS custom-repository steps are documented at [Custom repositories](https://www.hacs.xyz/docs/faq/custom_repositories/).
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=SupaHotMoj0&repository=authenticated&category=Integration)
 
