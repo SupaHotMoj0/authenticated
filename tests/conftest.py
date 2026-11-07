@@ -19,8 +19,8 @@ _HA_MODS = [
     "homeassistant.util.dt",
     "homeassistant.loader",
     "homeassistant.helpers.aiohttp_client",
+    "homeassistant.helpers.event",
     "voluptuous",
-    "aiohttp",
 ]
 
 for _mod in _HA_MODS:

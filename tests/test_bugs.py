@@ -1,9 +1,8 @@
 """Tests for bugs fixed in this changeset."""
 
-import importlib
 import os
-import sys
-from unittest.mock import patch, MagicMock
+
+from custom_components.authenticated.providers import IPInfo
 
 # Root of the repo and integration source directory
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,49 +56,27 @@ def test_const_exports_match_sensor_imports():
 # has no space (e.g. "AS13335" with no org name after it).
 # ---------------------------------------------------------------------------
 
-def _get_ipinfo_class():
-    """Import IPInfo by setting up the package context so relative imports work."""
-    # Create a fake parent package so `from . import ...` resolves
-    fake_pkg = MagicMock()
-    fake_pkg.AuthenticatedBaseException = type("AuthenticatedBaseException", (Exception,), {})
-    sys.modules["authenticated_pkg"] = fake_pkg
-
-    spec = importlib.util.spec_from_file_location(
-        "authenticated_pkg.providers",
-        os.path.join(SRC_DIR, "providers.py"),
-        submodule_search_locations=[],
-    )
-    mod = importlib.util.module_from_spec(spec)
-    # Patch the relative import target
-    mod.__package__ = "authenticated_pkg"
-    spec.loader.exec_module(mod)
-    return mod.IPInfo
-
-
 def test_ipinfo_org_no_space():
     """IPInfo.org must return None when the org field has no space separator."""
-    IPInfo = _get_ipinfo_class()
-    provider = IPInfo("1.1.1.1")
-    provider.result = {"org": "AS13335"}
+    provider = IPInfo("203.0.113.10")
+    provider.result = {"org": "AS64500"}
 
     assert provider.org is None
-    assert provider.asn == "AS13335"
+    assert provider.asn == "AS64500"
 
 
 def test_ipinfo_org_with_space():
     """IPInfo.org must return the org name after the ASN prefix."""
-    IPInfo = _get_ipinfo_class()
-    provider = IPInfo("1.1.1.1")
-    provider.result = {"org": "AS13335 Cloudflare Inc"}
+    provider = IPInfo("203.0.113.10")
+    provider.result = {"org": "AS64500 Example Operator"}
 
-    assert provider.asn == "AS13335"
-    assert provider.org == "Cloudflare Inc"
+    assert provider.asn == "AS64500"
+    assert provider.org == "Example Operator"
 
 
 def test_ipinfo_org_empty():
     """IPInfo.org must return None when org is missing."""
-    IPInfo = _get_ipinfo_class()
-    provider = IPInfo("1.1.1.1")
+    provider = IPInfo("203.0.113.10")
     provider.result = {}
 
     assert provider.org is None
@@ -112,23 +89,22 @@ def test_ipinfo_org_empty():
 # ---------------------------------------------------------------------------
 
 def test_async_handle_auth_event_uses_executor_for_blocking_calls():
-    """sensor.py must wrap lookup() and get_hostname() in
-    async_add_executor_job inside async_handle_auth_event."""
-    with open(os.path.join(SRC_DIR, "sensor.py")) as f:
-        source = f.read()
+    """Geo lookup is async and the old bus listener is not left registered.
 
-    method_start = source.index("async def async_handle_auth_event")
-    next_def = source.index("\n    async def ", method_start + 1)
-    method_body = source[method_start:next_def]
-
-    assert "async_add_executor_job(ipdata.lookup)" in method_body, (
-        "ipdata.lookup() should be called via async_add_executor_job"
-    )
-    assert "async_add_executor_job(get_hostname" in method_body, (
-        "get_hostname() should be called via async_add_executor_job"
-    )
-
-    stripped = method_body.replace("async_add_executor_job(ipdata.lookup)", "")
-    assert "ipdata.lookup()" not in stripped, (
-        "ipdata.lookup() is called synchronously somewhere in async_handle_auth_event"
-    )
+    Home Assistant does not emit a reliable login event. The previous
+    ``homeassistant_auth`` listener never ran and was not removed on unload.
+    """
+    sources = []
+    for name in os.listdir(SRC_DIR):
+        if name.endswith(".py"):
+            with open(os.path.join(SRC_DIR, name), encoding="utf-8") as handle:
+                sources.append(handle.read())
+    combined = "\n".join(sources)
+    assert "import requests" not in combined
+    assert "requests.get" not in combined
+    assert "async_listen(" not in combined
+    assert "X-Forwarded-For" not in combined
+    assert "async def async_lookup_ip" in combined
+    assert "async def async_shutdown" in combined
+    init = next(source for source in sources if "async def async_unload_entry" in source)
+    assert "async_shutdown" in init

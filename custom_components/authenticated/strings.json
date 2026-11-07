@@ -3,19 +3,61 @@
     "step": {
       "user": {
         "title": "Set up Authenticated",
-        "description": "Track successful Home Assistant authentication events.",
+        "description": "Observes refresh-token use recorded by Home Assistant. This is not proof of an interactive login. When public IP enrichment is enabled, those addresses are sent to the selected provider.",
         "data": {
           "provider": "IP lookup provider",
-          "enable_notification": "Enable notifications for new IPs",
-          "exclude": "Excluded IP addresses or networks (comma-separated)",
-          "exclude_clients": "Excluded client IDs (comma-separated)",
-          "notify_exclude_asns": "ASNs to exclude from notifications (comma-separated)",
-          "notify_exclude_hostnames": "Hostnames to exclude from notifications (comma-separated)"
+          "enrich_public_ips": "Look up public IP addresses",
+          "enable_notification": "Create a persistent notification",
+          "notify_on": "When to notify (new_ip or every_observation)",
+          "notify_services": "Notify services, comma-separated (for example notify.mobile_app_example)",
+          "exclude": "Excluded IP addresses or networks, comma-separated",
+          "exclude_clients": "Excluded client IDs, comma-separated",
+          "notify_exclude_asns": "ASNs to exclude from notifications, comma-separated",
+          "notify_exclude_hostnames": "Hostnames to exclude from notifications, comma-separated",
+          "history_retention_days": "Days to keep observed events",
+          "history_max_events": "Maximum stored events",
+          "store_usernames": "Store usernames in the local history file",
+          "resolve_hostnames": "Resolve public hostnames with reverse DNS"
         }
       }
     },
+    "error": {
+      "invalid_options": "Check the values and try again.",
+      "invalid_network": "Enter IP addresses or CIDR networks, separated by commas.",
+      "invalid_notify_service": "Use names like mobile_app_example or notify.mobile_app_example. Up to 8.",
+      "invalid_provider": "Choose ipapi or ipinfo."
+    },
     "abort": {
       "already_configured": "Authenticated is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Authenticated options",
+        "description": "Changes reload the integration. Public IP enrichment sends addresses to the selected provider. History is kept only on this Home Assistant host.",
+        "data": {
+          "provider": "IP lookup provider",
+          "enrich_public_ips": "Look up public IP addresses",
+          "enable_notification": "Create a persistent notification",
+          "notify_on": "When to notify (new_ip or every_observation)",
+          "notify_services": "Notify services, comma-separated (for example notify.mobile_app_example)",
+          "exclude": "Excluded IP addresses or networks, comma-separated",
+          "exclude_clients": "Excluded client IDs, comma-separated",
+          "notify_exclude_asns": "ASNs to exclude from notifications, comma-separated",
+          "notify_exclude_hostnames": "Hostnames to exclude from notifications, comma-separated",
+          "history_retention_days": "Days to keep observed events",
+          "history_max_events": "Maximum stored events",
+          "store_usernames": "Store usernames in the local history file",
+          "resolve_hostnames": "Resolve public hostnames with reverse DNS"
+        }
+      }
+    },
+    "error": {
+      "invalid_options": "Check the values and try again.",
+      "invalid_network": "Enter IP addresses or CIDR networks, separated by commas.",
+      "invalid_notify_service": "Use names like mobile_app_example or notify.mobile_app_example. Up to 8.",
+      "invalid_provider": "Choose ipapi or ipinfo."
     }
   }
 }
