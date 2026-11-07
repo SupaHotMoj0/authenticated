@@ -111,16 +111,19 @@ def test_sensor_has_unique_id():
 
 
 def test_sensor_uses_dt_util_not_datetime_utcnow():
-    """sensor.py must use homeassistant.util.dt.utcnow(), not datetime.utcnow()."""
-    with open(os.path.join(SRC_DIR, "sensor.py")) as f:
-        source = f.read()
-
-    assert "datetime.utcnow()" not in source, (
-        "datetime.utcnow() is deprecated in Python 3.12+; use homeassistant.util.dt.utcnow()"
-    )
-    assert "dt_util" in source, (
-        "sensor.py should import homeassistant.util.dt as dt_util"
-    )
+    """Integration code must not call the deprecated datetime.utcnow()."""
+    combined = []
+    for name in os.listdir(SRC_DIR):
+        if not name.endswith(".py"):
+            continue
+        with open(os.path.join(SRC_DIR, name), encoding="utf-8") as handle:
+            combined.append(handle.read())
+    source = "\n".join(combined)
+    assert "datetime.utcnow()" not in source
+    runtime = os.path.join(SRC_DIR, "runtime.py")
+    with open(runtime, encoding="utf-8") as handle:
+        runtime_source = handle.read()
+    assert "dt_util" in runtime_source
 
 
 def test_sensor_has_async_setup_entry():

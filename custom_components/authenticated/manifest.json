@@ -4,8 +4,11 @@
   "codeowners": [
     "@SupaHotMoj0"
   ],
+  "config_flow": true,
   "documentation": "https://github.com/SupaHotMoj0/authenticated",
-  "iot_class": "local_polling",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/SupaHotMoj0/authenticated/issues",
-  "version": "1.0.0"
+  "requirements": [],
+  "version": "1.1.0"
 }
